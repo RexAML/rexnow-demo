@@ -24,6 +24,7 @@ COL = {"combi": BLEU, "rf": ORANGE, "midas": TEAL, "en": NAVY, "obs": NOIR}
 NOM = {"combi": "Combinaison", "rf": "Random Forest", "midas": "MIDAS", "en": "ElasticNet"}
 MK = {"combi": "COMBI", "rf": "RandomForest", "midas": "MIDAS", "en": "ElasticNet"}
 DUMMIES = {"2008Q3", "2008Q4", "2009Q1", "2020Q1", "2020Q2", "2020Q3", "2020Q4", "2021Q3"}
+_PCFG = {"displayModeBar": False}   # barre d'outils Plotly masquee (plus propre, utile sur mobile)
 
 st.set_page_config(page_title="RexNow — Nowcast PIB · Rexecode", page_icon="📈", layout="wide")
 st.markdown(f"""<style>
@@ -40,6 +41,21 @@ st.markdown(f"""<style>
   .rex-banner .by b {{ color:#fff; }}
   div[data-testid="stMetricValue"] {{ color:{NAVY}; }}
   .stTabs [aria-selected="true"] {{ color:{BLEU} !important; }}
+  /* ---- Mobile : colonnes empilées, bandeau et marges compacts ---- */
+  @media (max-width:640px) {{
+    .block-container {{ padding-left:.6rem; padding-right:.6rem; padding-top:1rem; }}
+    .rex-banner {{ padding:15px 17px; border-radius:10px; }}
+    .rex-banner h1, .rex-banner h1 span {{ font-size:21px; }}
+    .rex-banner .sub {{ font-size:12px; }}
+    .rex-banner .rx {{ font-size:11px; }}
+    .rex-banner .by {{ font-size:11px; }}
+    div[data-testid="stMetricValue"] {{ font-size:26px; }}
+    /* forcer les colonnes à passer les unes sous les autres */
+    div[data-testid="stHorizontalBlock"] {{ flex-wrap:wrap; gap:.4rem; }}
+    div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {{
+      min-width:100% !important; flex:1 1 100% !important; }}
+    .stTabs [role="tablist"] {{ overflow-x:auto; }}
+  }}
 </style>""", unsafe_allow_html=True)
 
 
@@ -145,7 +161,7 @@ with tab_prev:
     fig.update_layout(barmode="group", height=320, margin=dict(l=10, r=10, t=10, b=10),
                       yaxis_title="croissance t/t (%)", plot_bgcolor="white", legend=dict(orientation="h", y=1.12))
     fig.update_yaxes(gridcolor=GRILLE, zerolinecolor=GRIS)
-    colR.plotly_chart(fig, use_container_width=True)
+    colR.plotly_chart(fig, use_container_width=True, config=_PCFG)
     st.caption("La combinaison (moyenne des 3) est le modèle opérationnel : elle lisse les erreurs propres à chacun.")
 
 # ---------- Observé vs prévu ----------
@@ -170,7 +186,7 @@ with tab_obs:
     fig.update_layout(height=420, margin=dict(l=10, r=10, t=10, b=10), plot_bgcolor="white",
                       yaxis_title="croissance t/t (%)", legend=dict(orientation="h", y=1.1), hovermode="x unified")
     fig.update_yaxes(gridcolor=GRILLE, zerolinecolor=GRIS)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, config=_PCFG)
     st.caption("Zone grisée = entraînement (2000-2014). À droite du pointillé = test hors-échantillon (2015→).")
 
 # ---------- Évolution & IC ----------
@@ -221,8 +237,8 @@ with tab_evo:
     c4v = carry([p4.get(s) for s in st4], known4)
 
     e1, e2 = st.columns(2)
-    e1.plotly_chart(funnel(st3, rm3, c3v, known3, "2026 T3 — nowcast (h=0)"), use_container_width=True)
-    e2.plotly_chart(funnel(st4, rm4, c4v, known4, "2026 T4 — prévision (h=1)"), use_container_width=True)
+    e1.plotly_chart(funnel(st3, rm3, c3v, known3, "2026 T3 — nowcast (h=0)"), use_container_width=True, config=_PCFG)
+    e2.plotly_chart(funnel(st4, rm4, c4v, known4, "2026 T4 — prévision (h=1)"), use_container_width=True, config=_PCFG)
 
 # ---------- RMSE glissant ----------
 with tab_rmse:
@@ -241,7 +257,7 @@ with tab_rmse:
     fig.update_layout(height=420, margin=dict(l=10, r=10, t=10, b=10), plot_bgcolor="white",
                       yaxis_title="RMSE (pts)", legend=dict(orientation="h", y=1.1), hovermode="x unified")
     fig.update_yaxes(gridcolor=GRILLE, rangemode="tozero")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, config=_PCFG)
     st.caption("Trimestres de crise neutralisés. À gauche du pointillé : in-sample ; à droite : hors-échantillon.")
 
 # ---------- Variables ----------
@@ -253,7 +269,7 @@ with tab_var:
     fig.update_layout(height=380, margin=dict(l=10, r=30, t=10, b=10), plot_bgcolor="white",
                       xaxis_title="part de l'importance (%)")
     fig.update_xaxes(gridcolor=GRILLE)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, config=_PCFG)
     st.caption("Importance mesurée par la forêt aléatoire (in-sample), agrégée en 7 familles économiques.")
 
 st.divider()
