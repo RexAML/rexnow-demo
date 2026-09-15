@@ -2,9 +2,10 @@
 
 Lecture seule : lit uniquement des sorties PRÉ-CALCULÉES (dossier ./data), aucun
 accès aux API sources, aucune clé, aucun recalcul. Accès protégé par mot de passe
-(défini dans les Secrets Streamlit Cloud : app_password = "…").
+(Secrets Streamlit Cloud : app_password = "…").
 
-Modèle et application conçus par Anthony Morlet-Lavidalie — Rexecode.
+Thème CLAIR / SOMBRE automatique : suit le réglage du navigateur/téléphone du
+visiteur (détecté via st.context.theme). Modèle et application : Anthony Morlet-Lavidalie — Rexecode.
 """
 from __future__ import annotations
 import json, datetime as dt
@@ -15,79 +16,90 @@ import streamlit as st
 import plotly.graph_objects as go
 
 DATA = Path(__file__).resolve().parent / "data"
+st.set_page_config(page_title="RexNow — Nowcast PIB · Rexecode", page_icon="📈", layout="wide")
 
-# --- couleurs du site rexecode.fr ---
-NAVY, BLEU, ORANGE, TEAL = "#1C5385", "#0077B8", "#F5894D", "#2CA089"
-NOIR, GRIS, GRILLE = "#14212E", "#A6A6A6", "#E3E7EC"
-BLEU_RGB = "0,119,184"
-COL = {"combi": BLEU, "rf": ORANGE, "midas": TEAL, "en": NAVY, "obs": NOIR}
+# --- thème du visiteur (clair / sombre), détecté côté serveur ---
+try:
+    DARK = (st.context.theme.type == "dark")
+except Exception:
+    DARK = False
+
+# --- palettes (couleurs du site rexecode.fr, déclinées clair/sombre) ---
+ORANGE = "#F5894D"
+if DARK:
+    BG, CARD, CARD2 = "#0F1720", "#1B2530", "#223143"
+    TXT, MUTED, LINE = "#E7ECF2", "#9FB0C0", "#2C3A49"
+    COMBI_BG, BANNER, ACCENT = "#22344A", "#1C3A5C", "#57ADE0"
+    AXIS, GRID, IC_RGB = "#9FB0C0", "rgba(150,160,175,0.16)", "87,173,224"
+    COL = {"combi": "#57ADE0", "rf": "#F79A5E", "midas": "#43C9AA", "en": "#9CC4E6", "obs": "#E7ECF2"}
+else:
+    BG, CARD, CARD2 = "#F4F5F7", "#FFFFFF", "#F1F7FC"
+    TXT, MUTED, LINE = "#14212E", "#5B6B7A", "#E3E7EC"
+    COMBI_BG, BANNER, ACCENT = "#EAF4FB", "#1C5385", "#0077B8"
+    AXIS, GRID, IC_RGB = "#5B6B7A", "rgba(130,140,155,0.22)", "0,119,184"
+    COL = {"combi": "#0077B8", "rf": "#F5894D", "midas": "#2CA089", "en": "#1C5385", "obs": "#14212E"}
+
 NOM = {"combi": "Combinaison", "rf": "Random Forest", "midas": "MIDAS", "en": "ElasticNet"}
 MK = {"combi": "COMBI", "rf": "RandomForest", "midas": "MIDAS", "en": "ElasticNet"}
 DUMMIES = {"2008Q3", "2008Q4", "2009Q1", "2020Q1", "2020Q2", "2020Q3", "2020Q4", "2021Q3"}
-_PCFG = {"displayModeBar": False}   # barre d'outils Plotly masquee (plus propre, utile sur mobile)
+_PCFG = {"displayModeBar": False}
 
-st.set_page_config(page_title="RexNow — Nowcast PIB · Rexecode", page_icon="📈", layout="wide")
 st.markdown(f"""<style>
-  .stApp {{ background:#F4F5F7; }}
-  section[data-testid="stSidebar"] {{ background:#F1F7FC; }}
-  .rex-banner {{ background:{NAVY}; border-radius:12px; padding:22px 28px; margin:0 0 14px 0;
-    color:#fff; box-shadow:0 2px 10px rgba(28,83,133,0.18); }}
-  .rex-banner .rx {{ font-weight:800; letter-spacing:.6px; font-size:14px; color:#BFD8EC; text-transform:uppercase; }}
-  .rex-banner .rx b {{ color:{BLEU}; }}
+  html, body, .stApp {{ background:{BG} !important; color:{TXT}; }}
+  section[data-testid="stSidebar"] {{ background:{CARD2}; }}
+  #MainMenu, footer, [data-testid="stStatusWidget"] {{ visibility:hidden; }}
+  [data-testid="stHeader"] {{ background:transparent !important; }}
+  .block-container {{ max-width:1050px; }}
+  .stApp * {{ animation-duration:0s !important; animation-delay:0s !important; }}
+  [data-testid="stElementContainer"], .element-container, [data-testid="stMarkdownContainer"] {{ opacity:1 !important; }}
+  /* textes : forcés à la couleur du thème courant */
+  [data-testid="stHeading"], [data-testid="stHeading"] * {{ color:{TXT} !important; }}
+  [data-testid="stMarkdownContainer"] p, [data-testid="stMarkdownContainer"] li {{ color:{TXT} !important; }}
+  [data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] * {{ color:{MUTED} !important; }}
+  .stTabs [data-baseweb="tab"] p {{ color:{MUTED} !important; }}
+  .stTabs [aria-selected="true"] p {{ color:{ACCENT} !important; }}
+  section[data-testid="stSidebar"] p, section[data-testid="stSidebar"] span,
+  section[data-testid="stSidebar"] label, section[data-testid="stSidebar"] h1 {{ color:{TXT} !important; }}
+  section[data-testid="stSidebar"] [data-testid="stMetricValue"] {{ color:{TXT} !important; }}
+  /* bandeau */
+  .rex-banner {{ background:{BANNER}; border-radius:12px; padding:22px 28px; margin:0 0 14px 0;
+    color:#fff; box-shadow:0 2px 12px rgba(0,0,0,0.18); }}
+  .rex-banner .rx {{ font-weight:800; letter-spacing:.6px; font-size:14px; color:#BFD8EC !important;
+    text-transform:uppercase; }}
+  .rex-banner .rx b {{ color:{ACCENT} !important; }}
   .rex-banner h1, .rex-banner h1 span {{ margin:.12em 0 .04em; font-size:30px; font-weight:800; color:#fff !important; }}
   .rex-banner h1 span.nm {{ color:{ORANGE} !important; }}
-  .rex-banner .sub {{ color:#DCEAF6; font-size:14.5px; }}
-  .rex-banner .by {{ margin-top:10px; font-size:12.5px; color:#9FBEDA; }}
-  .rex-banner .by b {{ color:#fff; }}
-  div[data-testid="stMetricValue"] {{ color:{NAVY}; }}
-  .stTabs [aria-selected="true"] {{ color:{BLEU} !important; }}
-  /* épurer l'habillage Streamlit */
-  #MainMenu {{ visibility:hidden; }}
-  footer {{ visibility:hidden; }}
-  [data-testid="stStatusWidget"] {{ display:none !important; }}
-  .block-container {{ max-width:1050px; }}
+  .rex-banner .sub {{ color:#DCEAF6 !important; font-size:14.5px; }}
+  .rex-banner .by {{ margin-top:10px; font-size:12.5px; color:#AEC7DE !important; }}
+  .rex-banner .by b {{ color:#fff !important; }}
   /* cartes de synthèse */
   .mrow {{ display:flex; gap:12px; flex-wrap:wrap; margin:4px 0 8px; }}
-  .mcard {{ flex:1 1 190px; background:#fff; border:1px solid {GRILLE}; border-left:4px solid {BLEU};
+  .mcard {{ flex:1 1 190px; background:{CARD}; border:1px solid {LINE}; border-left:4px solid {ACCENT};
     border-radius:11px; padding:14px 16px; }}
-  .mcard .lbl {{ font-size:12px; color:#5B6B7A; font-weight:600; text-transform:uppercase; letter-spacing:.02em; }}
-  .mcard .val {{ font-size:30px; font-weight:800; color:{NAVY}; line-height:1.05; margin-top:4px; }}
-  .mcard.rmse {{ border-left-color:{ORANGE}; background:#F1F7FC; }}
-  .mcard.rmse .txt {{ font-size:13px; color:#33475B; margin-top:4px; line-height:1.45; }}
-  /* tableau maison (clair, lisible sur tout appareil) */
-  .rex-tw {{ overflow-x:auto; -webkit-overflow-scrolling:touch; border:1px solid {GRILLE};
-    border-radius:11px; margin:2px 0 8px; }}
+  .mcard .lbl {{ font-size:12px; color:{MUTED} !important; font-weight:600; text-transform:uppercase; letter-spacing:.02em; }}
+  .mcard .val {{ font-size:30px; font-weight:800; color:{ACCENT} !important; line-height:1.05; margin-top:4px; }}
+  .mcard.rmse {{ border-left-color:{ORANGE}; background:{CARD2}; }}
+  .mcard.rmse .txt, .mcard.rmse .txt b {{ font-size:13px; color:{TXT} !important; margin-top:4px; line-height:1.45; }}
+  /* tableau */
+  .rex-tw {{ overflow-x:auto; -webkit-overflow-scrolling:touch; border:1px solid {LINE};
+    border-radius:11px; margin:2px 0 8px; background:{CARD}; }}
   table.rex {{ border-collapse:collapse; width:100%; font-size:13.5px; }}
   table.rex th, table.rex td {{ padding:9px 12px; text-align:right; white-space:nowrap;
-    border-bottom:1px solid #EDF0F3; font-variant-numeric:tabular-nums; }}
-  table.rex th:first-child, table.rex td:first-child {{ text-align:left; position:sticky; left:0; background:#fff; }}
-  table.rex thead th {{ background:#F1F7FC; color:#33475B; font-weight:600; }}
-  table.rex thead th:first-child {{ background:#F1F7FC; }}
+    border-bottom:1px solid {LINE}; font-variant-numeric:tabular-nums; color:{TXT}; }}
+  table.rex th:first-child, table.rex td:first-child {{ text-align:left; position:sticky; left:0; background:{CARD}; }}
+  table.rex thead th {{ background:{CARD2}; color:{MUTED} !important; font-weight:600; }}
   table.rex tbody tr:last-child td {{ border-bottom:none; }}
-  table.rex td {{ color:{NOIR}; }}
-  table.rex tr.combi td {{ background:#EAF4FB; font-weight:700; color:{NAVY}; }}
-  /* graphiques présentés comme des cartes blanches sur le fond grisé */
-  [data-testid="stPlotlyChart"] {{ background:#fff; border:1px solid {GRILLE};
-    border-radius:11px; padding:8px 10px; }}
-  /* certains Android laissent des blocs en fondu (animation d'apparition figée)
-     → on force l'opacité pleine et on neutralise l'animation */
-  .stApp * {{ animation-duration:0s !important; animation-delay:0s !important; }}
-  .stApp [data-testid="stElementContainer"], .stApp .element-container,
-  .stApp [data-testid="stMarkdownContainer"], .stApp [data-stale="true"],
-  .stApp [class*="stMarkdown"] {{ opacity:1 !important; }}
-  /* ---- Mobile : colonnes empilées, bandeau et marges compacts ---- */
+  table.rex tr.combi td {{ background:{COMBI_BG}; font-weight:700; color:{ACCENT} !important; }}
+  /* graphiques en cartes */
+  [data-testid="stPlotlyChart"] {{ background:{CARD}; border:1px solid {LINE}; border-radius:11px; padding:8px 10px; }}
   @media (max-width:640px) {{
     .block-container {{ padding-left:.6rem; padding-right:.6rem; padding-top:1rem; }}
     .rex-banner {{ padding:15px 17px; border-radius:10px; }}
     .rex-banner h1, .rex-banner h1 span {{ font-size:21px; }}
-    .rex-banner .sub {{ font-size:12px; }}
-    .rex-banner .rx {{ font-size:11px; }}
-    .rex-banner .by {{ font-size:11px; }}
-    div[data-testid="stMetricValue"] {{ font-size:26px; }}
-    /* forcer les colonnes à passer les unes sous les autres */
+    .rex-banner .sub {{ font-size:12px; }} .rex-banner .rx, .rex-banner .by {{ font-size:11px; }}
+    .mcard .val {{ font-size:26px; }}
     div[data-testid="stHorizontalBlock"] {{ flex-wrap:wrap; gap:.4rem; }}
-    div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {{
-      min-width:100% !important; flex:1 1 100% !important; }}
+    div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {{ min-width:100% !important; flex:1 1 100% !important; }}
     .stTabs [role="tablist"] {{ overflow-x:auto; }}
   }}
 </style>""", unsafe_allow_html=True)
@@ -111,6 +123,18 @@ def fr(x, s=2):
     return ("+" if x >= 0 else "−") + f"{abs(x):.{s}f}".replace(".", ",")
 
 
+def style_fig(fig, h, ytitle=None, legend=True):
+    fig.update_layout(height=h, margin=dict(l=10, r=10, t=10, b=10),
+                      paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                      font=dict(color=AXIS), hovermode="x unified",
+                      legend=dict(orientation="h", y=1.12, bgcolor="rgba(0,0,0,0)"))
+    if not legend:
+        fig.update_layout(showlegend=False)
+    fig.update_xaxes(gridcolor=GRID, zerolinecolor=MUTED)
+    fig.update_yaxes(gridcolor=GRID, zerolinecolor=MUTED, title=ytitle)
+    return fig
+
+
 # ======================= mot de passe =======================
 def gate():
     if st.session_state.get("rexnow_ok"):
@@ -119,7 +143,7 @@ def gate():
         pw_ref = st.secrets["app_password"]
     except Exception:
         pw_ref = None
-    if not pw_ref:      # aucun secret configuré → accès ouvert, mais on prévient
+    if not pw_ref:
         st.session_state.rexnow_ok = True
         st.session_state.rexnow_nopw = True
         return
@@ -127,8 +151,7 @@ def gate():
       <h1><span class="nm">RexNow</span> — accès protégé</h1>
       <div class="sub">Merci de saisir le mot de passe communiqué par Rexecode.</div></div>""",
                 unsafe_allow_html=True)
-    pw = st.text_input("Mot de passe", type="password", label_visibility="collapsed",
-                       placeholder="Mot de passe")
+    pw = st.text_input("Mot de passe", type="password", label_visibility="collapsed", placeholder="Mot de passe")
     if not pw:
         st.stop()
     if pw == pw_ref:
@@ -139,7 +162,7 @@ def gate():
 
 gate()
 
-# ======================= chargement des sorties pré-calculées =======================
+# ======================= chargement =======================
 meta = loadjson(DATA / "meta.json")
 last_data = meta.get("last_data_fr", meta.get("last_data_iso", "n/a"))
 hs = loadjson(DATA / "horizon_summary.json")
@@ -158,6 +181,7 @@ st.sidebar.metric("Donnée la plus récente", last_data)
 st.sidebar.divider()
 st.sidebar.info("🔒 **Mode consultation** — navigation libre dans les onglets. "
                 "Version partagée en lecture seule ; le modèle n'est pas recalculé ici.")
+st.sidebar.caption(f"Thème : {'sombre' if DARK else 'clair'} (suit votre appareil)")
 if st.session_state.get("rexnow_nopw"):
     st.sidebar.warning("Aucun mot de passe configuré. Ajoutez `app_password` dans les "
                        "Secrets Streamlit Cloud pour protéger l'accès.")
@@ -185,8 +209,7 @@ tab_prev, tab_obs, tab_evo, tab_rmse, tab_var = st.tabs(
 # ---------- Prévisions ----------
 with tab_prev:
     st.subheader("Prévision par modèle et combinaison")
-    head = "".join(f"<th>{h}</th>" for h in
-                   ["Modèle", "T3 (%)", "T4 (%)", "RMSE now.", "RMSE prév."])
+    head = "".join(f"<th>{h}</th>" for h in ["Modèle", "T3 (%)", "T4 (%)", "RMSE now.", "RMSE prév."])
     body = ""
     for k in ["rf", "midas", "en", "combi"]:
         cls = ' class="combi"' if k == "combi" else ""
@@ -196,12 +219,10 @@ with tab_prev:
                 f'<tbody>{body}</tbody></table></div>', unsafe_allow_html=True)
     xs = [NOM[k] for k in ["rf", "midas", "en", "combi"]]
     fig = go.Figure()
-    fig.add_bar(x=xs, y=[f3[MK[k]] for k in ["rf", "midas", "en", "combi"]], name="T3 (nowcast)", marker_color=BLEU)
+    fig.add_bar(x=xs, y=[f3[MK[k]] for k in ["rf", "midas", "en", "combi"]], name="T3 (nowcast)", marker_color=ACCENT)
     fig.add_bar(x=xs, y=[f4[MK[k]] for k in ["rf", "midas", "en", "combi"]], name="T4 (prévision)", marker_color=ORANGE)
-    fig.update_layout(barmode="group", height=320, margin=dict(l=10, r=10, t=10, b=10),
-                      yaxis_title="croissance t/t (%)", plot_bgcolor="white", legend=dict(orientation="h", y=1.12))
-    fig.update_yaxes(gridcolor=GRILLE, zerolinecolor=GRIS)
-    st.plotly_chart(fig, use_container_width=True, config=_PCFG)
+    fig.update_layout(barmode="group")
+    st.plotly_chart(style_fig(fig, 320, "croissance t/t (%)"), use_container_width=True, config=_PCFG, theme=None)
     st.caption("La combinaison (moyenne des 3) est le modèle opérationnel : elle lisse les erreurs propres à chacun.")
 
 # ---------- Observé vs prévu ----------
@@ -216,17 +237,14 @@ with tab_obs:
         D = D[~D.index.str.startswith("2020")]
     x = [qdate(q) for q in D.index]
     fig = go.Figure()
-    fig.add_scatter(x=x, y=D["actual"], name="PIB observé", mode="lines", line=dict(color=NOIR, width=2.6))
+    fig.add_scatter(x=x, y=D["actual"], name="PIB observé", mode="lines", line=dict(color=COL["obs"], width=2.6))
     for k in sel:
         col = {"combi": "combi", "rf": "RandomForest", "midas": "MIDAS", "en": "ElasticNet"}[k]
         fig.add_scatter(x=x, y=D[col], name=NOM[k], mode="lines", line=dict(color=COL[k], width=1.8))
-    fig.add_vrect(x0=qdate("2000Q1"), x1=qdate("2014Q4"), fillcolor=GRIS, opacity=0.10,
+    fig.add_vrect(x0=qdate("2000Q1"), x1=qdate("2014Q4"), fillcolor=MUTED, opacity=0.08,
                   line_width=0, annotation_text="in-sample", annotation_position="top left")
-    fig.add_vline(x=qdate("2015Q1"), line=dict(color=GRIS, dash="dot"))
-    fig.update_layout(height=420, margin=dict(l=10, r=10, t=10, b=10), plot_bgcolor="white",
-                      yaxis_title="croissance t/t (%)", legend=dict(orientation="h", y=1.1), hovermode="x unified")
-    fig.update_yaxes(gridcolor=GRILLE, zerolinecolor=GRIS)
-    st.plotly_chart(fig, use_container_width=True, config=_PCFG)
+    fig.add_vline(x=qdate("2015Q1"), line=dict(color=MUTED, dash="dot"))
+    st.plotly_chart(style_fig(fig, 420, "croissance t/t (%)"), use_container_width=True, config=_PCFG, theme=None)
     st.caption("Zone grisée = entraînement (2000-2014). À droite du pointillé = test hors-échantillon (2015→).")
 
 # ---------- Évolution & IC ----------
@@ -241,19 +259,17 @@ with tab_evo:
         up68 = [c + r for c, r in zip(center, rmse)]; lo68 = [c - r for c, r in zip(center, rmse)]
         fig = go.Figure()
         fig.add_scatter(x=x + x[::-1], y=up95 + lo95[::-1], fill="toself",
-                        fillcolor=f"rgba({BLEU_RGB},0.10)", line_width=0, name="IC 95 %", hoverinfo="skip")
+                        fillcolor=f"rgba({IC_RGB},0.12)", line_width=0, name="IC 95 %", hoverinfo="skip")
         fig.add_scatter(x=x + x[::-1], y=up68 + lo68[::-1], fill="toself",
-                        fillcolor=f"rgba({BLEU_RGB},0.22)", line_width=0, name="IC 68 %", hoverinfo="skip")
-        fig.add_scatter(x=x, y=center, mode="lines+markers+text", line=dict(color=BLEU, width=2.4),
-                        marker=dict(size=11, color=[BLEU if k else "white" for k in known],
-                                    line=dict(color=BLEU, width=2)),
+                        fillcolor=f"rgba({IC_RGB},0.26)", line_width=0, name="IC 68 %", hoverinfo="skip")
+        fig.add_scatter(x=x, y=center, mode="lines+markers+text", line=dict(color=ACCENT, width=2.4),
+                        marker=dict(size=11, color=[ACCENT if k else CARD for k in known],
+                                    line=dict(color=ACCENT, width=2)),
                         text=[fr(c) if k else "" for c, k in zip(center, known)],
-                        textposition="top center", name="prévision")
-        fig.update_layout(height=360, margin=dict(l=10, r=10, t=30, b=10), title=titre,
-                          plot_bgcolor="white", showlegend=False,
+                        textposition="top center", textfont=dict(color=TXT), name="prévision")
+        fig.update_layout(title=dict(text=titre, font=dict(color=TXT)),
                           xaxis=dict(tickmode="array", tickvals=x, ticktext=stages))
-        fig.update_yaxes(gridcolor=GRILLE, zerolinecolor=GRIS, title="croissance t/t (%)")
-        return fig
+        return style_fig(fig, 360, "croissance t/t (%)", legend=False)
 
     def carry(vals, known):
         out, last = [], None
@@ -277,8 +293,8 @@ with tab_evo:
     c4v = carry([p4.get(s) for s in st4], known4)
 
     e1, e2 = st.columns(2)
-    e1.plotly_chart(funnel(st3, rm3, c3v, known3, "2026 T3 — nowcast (h=0)"), use_container_width=True, config=_PCFG)
-    e2.plotly_chart(funnel(st4, rm4, c4v, known4, "2026 T4 — prévision (h=1)"), use_container_width=True, config=_PCFG)
+    e1.plotly_chart(funnel(st3, rm3, c3v, known3, "2026 T3 — nowcast (h=0)"), use_container_width=True, config=_PCFG, theme=None)
+    e2.plotly_chart(funnel(st4, rm4, c4v, known4, "2026 T4 — prévision (h=1)"), use_container_width=True, config=_PCFG, theme=None)
 
 # ---------- RMSE glissant ----------
 with tab_rmse:
@@ -293,23 +309,19 @@ with tab_rmse:
     for k in ["rf", "midas", "en", "combi"]:
         fig.add_scatter(x=x, y=err[k], name=NOM[k], mode="lines",
                         line=dict(color=COL[k], width=2.6 if k == "combi" else 1.6))
-    fig.add_vline(x=qdate("2015Q1"), line=dict(color=GRIS, dash="dot"))
-    fig.update_layout(height=420, margin=dict(l=10, r=10, t=10, b=10), plot_bgcolor="white",
-                      yaxis_title="RMSE (pts)", legend=dict(orientation="h", y=1.1), hovermode="x unified")
-    fig.update_yaxes(gridcolor=GRILLE, rangemode="tozero")
-    st.plotly_chart(fig, use_container_width=True, config=_PCFG)
+    fig.add_vline(x=qdate("2015Q1"), line=dict(color=MUTED, dash="dot"))
+    st.plotly_chart(style_fig(fig, 420, "RMSE (pts)"), use_container_width=True, config=_PCFG, theme=None)
     st.caption("Trimestres de crise neutralisés. À gauche du pointillé : in-sample ; à droite : hors-échantillon.")
 
 # ---------- Variables ----------
 with tab_var:
     st.subheader("Catégories de variables les plus utiles")
     agg = pd.Series(loadjson(DATA / "cats_importance.json")).sort_values()
-    fig = go.Figure(go.Bar(x=agg.values, y=agg.index, orientation="h", marker_color=BLEU,
-                           text=[f"{v:.0f}%" for v in agg.values], textposition="outside"))
-    fig.update_layout(height=380, margin=dict(l=10, r=30, t=10, b=10), plot_bgcolor="white",
-                      xaxis_title="part de l'importance (%)")
-    fig.update_xaxes(gridcolor=GRILLE)
-    st.plotly_chart(fig, use_container_width=True, config=_PCFG)
+    fig = go.Figure(go.Bar(x=agg.values, y=agg.index, orientation="h", marker_color=ACCENT,
+                           text=[f"{v:.0f}%" for v in agg.values], textposition="outside",
+                           textfont=dict(color=TXT)))
+    fig.update_layout(xaxis_title="part de l'importance (%)")
+    st.plotly_chart(style_fig(fig, 380, None, legend=False), use_container_width=True, config=_PCFG, theme=None)
     st.caption("Importance mesurée par la forêt aléatoire (in-sample), agrégée en 7 familles économiques.")
 
 st.divider()
