@@ -1,0 +1,21 @@
+{
+ "stages": [
+  "T non commencé",
+  "fin M1",
+  "fin M2",
+  "fin M3",
+  "T publié"
+ ],
+ "rmse_stage": {
+  "T non commencé": 0.225,
+  "fin M1": 0.221,
+  "fin M2": 0.226,
+  "fin M3": 0.227,
+  "T publié": 0.242
+ },
+ "path_T4": {
+  "T non commencé": 0.292,
+  "fin M1": 0.258,
+  "fin M2": 0.26
+ }
+}

@@ -1,0 +1,26 @@
+{
+ "rmse_h0": {
+  "COMBI": 0.215,
+  "ElasticNet": 0.227,
+  "MIDAS": 0.247,
+  "RandomForest": 0.213
+ },
+ "rmse_h1": {
+  "COMBI": 0.226,
+  "ElasticNet": 0.247,
+  "MIDAS": 0.252,
+  "RandomForest": 0.226
+ },
+ "forecast_T3_h0": {
+  "RandomForest": 0.163,
+  "MIDAS": 0.311,
+  "ElasticNet": 0.139,
+  "COMBI": 0.204
+ },
+ "forecast_T4_h1": {
+  "RandomForest": 0.225,
+  "MIDAS": 0.3,
+  "ElasticNet": 0.257,
+  "COMBI": 0.261
+ }
+}

@@ -1,0 +1,27 @@
+{
+ "stages": [
+  "avant T",
+  "fin M1",
+  "fin M2",
+  "fin M3",
+  "M+1"
+ ],
+ "rmse_stage": {
+  "avant T": 0.231,
+  "fin M1": 0.228,
+  "fin M2": 0.238,
+  "fin M3": 0.215,
+  "M+1": 0.214
+ },
+ "paths": {
+  "2026Q3": {
+   "avant T": 0.304,
+   "fin M1": 0.299,
+   "fin M2": 0.28,
+   "aujourd'hui": 0.204
+  },
+  "2026Q4": {
+   "aujourd'hui": 0.301
+  }
+ }
+}
