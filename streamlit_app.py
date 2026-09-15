@@ -28,7 +28,7 @@ _PCFG = {"displayModeBar": False}   # barre d'outils Plotly masquee (plus propre
 
 st.set_page_config(page_title="RexNow — Nowcast PIB · Rexecode", page_icon="📈", layout="wide")
 st.markdown(f"""<style>
-  .stApp {{ background:#FFFFFF; }}
+  .stApp {{ background:#F4F5F7; }}
   section[data-testid="stSidebar"] {{ background:#F1F7FC; }}
   .rex-banner {{ background:{NAVY}; border-radius:12px; padding:22px 28px; margin:0 0 14px 0;
     color:#fff; box-shadow:0 2px 10px rgba(28,83,133,0.18); }}
@@ -64,7 +64,17 @@ st.markdown(f"""<style>
   table.rex thead th {{ background:#F1F7FC; color:#33475B; font-weight:600; }}
   table.rex thead th:first-child {{ background:#F1F7FC; }}
   table.rex tbody tr:last-child td {{ border-bottom:none; }}
+  table.rex td {{ color:{NOIR}; }}
   table.rex tr.combi td {{ background:#EAF4FB; font-weight:700; color:{NAVY}; }}
+  /* graphiques présentés comme des cartes blanches sur le fond grisé */
+  [data-testid="stPlotlyChart"] {{ background:#fff; border:1px solid {GRILLE};
+    border-radius:11px; padding:8px 10px; }}
+  /* certains Android laissent des blocs en fondu (animation d'apparition figée)
+     → on force l'opacité pleine et on neutralise l'animation */
+  .stApp * {{ animation-duration:0s !important; animation-delay:0s !important; }}
+  .stApp [data-testid="stElementContainer"], .stApp .element-container,
+  .stApp [data-testid="stMarkdownContainer"], .stApp [data-stale="true"],
+  .stApp [class*="stMarkdown"] {{ opacity:1 !important; }}
   /* ---- Mobile : colonnes empilées, bandeau et marges compacts ---- */
   @media (max-width:640px) {{
     .block-container {{ padding-left:.6rem; padding-right:.6rem; padding-top:1rem; }}
