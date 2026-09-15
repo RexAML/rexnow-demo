@@ -41,6 +41,30 @@ st.markdown(f"""<style>
   .rex-banner .by b {{ color:#fff; }}
   div[data-testid="stMetricValue"] {{ color:{NAVY}; }}
   .stTabs [aria-selected="true"] {{ color:{BLEU} !important; }}
+  /* épurer l'habillage Streamlit */
+  #MainMenu {{ visibility:hidden; }}
+  footer {{ visibility:hidden; }}
+  [data-testid="stStatusWidget"] {{ display:none !important; }}
+  .block-container {{ max-width:1050px; }}
+  /* cartes de synthèse */
+  .mrow {{ display:flex; gap:12px; flex-wrap:wrap; margin:4px 0 8px; }}
+  .mcard {{ flex:1 1 190px; background:#fff; border:1px solid {GRILLE}; border-left:4px solid {BLEU};
+    border-radius:11px; padding:14px 16px; }}
+  .mcard .lbl {{ font-size:12px; color:#5B6B7A; font-weight:600; text-transform:uppercase; letter-spacing:.02em; }}
+  .mcard .val {{ font-size:30px; font-weight:800; color:{NAVY}; line-height:1.05; margin-top:4px; }}
+  .mcard.rmse {{ border-left-color:{ORANGE}; background:#F1F7FC; }}
+  .mcard.rmse .txt {{ font-size:13px; color:#33475B; margin-top:4px; line-height:1.45; }}
+  /* tableau maison (clair, lisible sur tout appareil) */
+  .rex-tw {{ overflow-x:auto; -webkit-overflow-scrolling:touch; border:1px solid {GRILLE};
+    border-radius:11px; margin:2px 0 8px; }}
+  table.rex {{ border-collapse:collapse; width:100%; font-size:13.5px; }}
+  table.rex th, table.rex td {{ padding:9px 12px; text-align:right; white-space:nowrap;
+    border-bottom:1px solid #EDF0F3; font-variant-numeric:tabular-nums; }}
+  table.rex th:first-child, table.rex td:first-child {{ text-align:left; position:sticky; left:0; background:#fff; }}
+  table.rex thead th {{ background:#F1F7FC; color:#33475B; font-weight:600; }}
+  table.rex thead th:first-child {{ background:#F1F7FC; }}
+  table.rex tbody tr:last-child td {{ border-bottom:none; }}
+  table.rex tr.combi td {{ background:#EAF4FB; font-weight:700; color:{NAVY}; }}
   /* ---- Mobile : colonnes empilées, bandeau et marges compacts ---- */
   @media (max-width:640px) {{
     .block-container {{ padding-left:.6rem; padding-right:.6rem; padding-top:1rem; }}
@@ -137,11 +161,13 @@ st.markdown(f"""<div class="rex-banner">
   <div class="by">Modèle et application conçus par <b>Anthony Morlet-Lavidalie</b> — Rexecode</div>
 </div>""", unsafe_allow_html=True)
 
-c1, c2, c3 = st.columns([1, 1, 1.4])
-c1.metric("2026 T3 — nowcast (h=0)", fr(f3["COMBI"]) + " %")
-c2.metric("2026 T4 — prévision (h=1)", fr(f4["COMBI"]) + " %")
-c3.info(f"**RMSE test** (hors crise) — nowcast **{r0['COMBI']:.2f}**, prévision **{r1['COMBI']:.2f}** "
-        "pts de croissance. Deux modèles distincts par horizon.")
+st.markdown(f"""<div class="mrow">
+  <div class="mcard"><div class="lbl">2026 T3 — nowcast (h=0)</div><div class="val">{fr(f3['COMBI'])} %</div></div>
+  <div class="mcard"><div class="lbl">2026 T4 — prévision (h=1)</div><div class="val">{fr(f4['COMBI'])} %</div></div>
+  <div class="mcard rmse"><div class="lbl">RMSE test · hors crise</div>
+    <div class="txt">nowcast <b>{r0['COMBI']:.2f}</b> · prévision <b>{r1['COMBI']:.2f}</b> pts<br>
+    deux modèles distincts par horizon</div></div>
+</div>""", unsafe_allow_html=True)
 
 tab_prev, tab_obs, tab_evo, tab_rmse, tab_var = st.tabs(
     ["Prévisions", "Observé vs prévu", "Évolution & incertitude", "RMSE glissant", "Variables"])
@@ -149,11 +175,15 @@ tab_prev, tab_obs, tab_evo, tab_rmse, tab_var = st.tabs(
 # ---------- Prévisions ----------
 with tab_prev:
     st.subheader("Prévision par modèle et combinaison")
-    rows = [{"Modèle": NOM[k], "2026 T3 (%)": round(f3[MK[k]], 2), "2026 T4 (%)": round(f4[MK[k]], 2),
-             "RMSE test nowcast": r0[MK[k]], "RMSE test prévision": r1[MK[k]]}
-            for k in ["rf", "midas", "en", "combi"]]
-    colL, colR = st.columns([1.1, 1])
-    colL.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+    head = "".join(f"<th>{h}</th>" for h in
+                   ["Modèle", "T3 (%)", "T4 (%)", "RMSE now.", "RMSE prév."])
+    body = ""
+    for k in ["rf", "midas", "en", "combi"]:
+        cls = ' class="combi"' if k == "combi" else ""
+        body += (f"<tr{cls}><td>{NOM[k]}</td><td>{f3[MK[k]]:.2f}</td><td>{f4[MK[k]]:.2f}</td>"
+                 f"<td>{r0[MK[k]]:.3f}</td><td>{r1[MK[k]]:.3f}</td></tr>")
+    st.markdown(f'<div class="rex-tw"><table class="rex"><thead><tr>{head}</tr></thead>'
+                f'<tbody>{body}</tbody></table></div>', unsafe_allow_html=True)
     xs = [NOM[k] for k in ["rf", "midas", "en", "combi"]]
     fig = go.Figure()
     fig.add_bar(x=xs, y=[f3[MK[k]] for k in ["rf", "midas", "en", "combi"]], name="T3 (nowcast)", marker_color=BLEU)
@@ -161,7 +191,7 @@ with tab_prev:
     fig.update_layout(barmode="group", height=320, margin=dict(l=10, r=10, t=10, b=10),
                       yaxis_title="croissance t/t (%)", plot_bgcolor="white", legend=dict(orientation="h", y=1.12))
     fig.update_yaxes(gridcolor=GRILLE, zerolinecolor=GRIS)
-    colR.plotly_chart(fig, use_container_width=True, config=_PCFG)
+    st.plotly_chart(fig, use_container_width=True, config=_PCFG)
     st.caption("La combinaison (moyenne des 3) est le modèle opérationnel : elle lisse les erreurs propres à chacun.")
 
 # ---------- Observé vs prévu ----------
